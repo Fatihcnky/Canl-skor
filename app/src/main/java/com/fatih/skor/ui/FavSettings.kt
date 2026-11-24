@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -62,7 +63,7 @@ fun FavoritesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
 fun SettingsScreen(vm: ScoreVm, modifier: Modifier) {
     val wl by vm.widgetLeague.collectAsStateWithLifecycle()
     val alert by vm.alertMode.collectAsStateWithLifecycle()
-    var pending by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    var pending by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(-1) }
     val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
     ) { _ -> if (pending >= 0) vm.setAlert(pending); pending = -1 }
