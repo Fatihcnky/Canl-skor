@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Skor</string>
+    <string name="widget_matches_desc">Canlı ve yaklaşan maçlar</string>
+    <string name="widget_standings_desc">Puan durumu</string>
+</resources>
