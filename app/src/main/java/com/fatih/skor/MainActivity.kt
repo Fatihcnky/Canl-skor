@@ -14,6 +14,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WidgetUpdater.schedule(this)
+        com.fatih.skor.widget.GoalService.sync(this) // bildirimler açıksa takip servisini (yeniden) başlat
         setContent { SkorTheme { SkorApp(vm) } }
     }
 }

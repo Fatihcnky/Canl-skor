@@ -23,6 +23,11 @@ class Store(ctx: Context) {
         get() = p.getString("widget_league", "tur.1") ?: "tur.1"
         set(v) { p.edit().putString("widget_league", v).apply() }
 
+    /** 0 = kapalı, 1 = favori takımlar, 2 = widget ligindeki tüm maçlar */
+    var alertMode: Int
+        get() = p.getInt("alert_mode", 0)
+        set(v) { p.edit().putInt("alert_mode", v).apply() }
+
     fun saveCache(key: String, payload: WidgetPayload) {
         p.edit().putString("cache_$key", Json.encodeToString(payload)).apply()
     }

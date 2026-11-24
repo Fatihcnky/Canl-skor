@@ -50,7 +50,7 @@ fun TableScreen(vm: ScoreVm, modifier: Modifier) {
             val g = groups
             when {
                 loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                g.isNullOrEmpty() -> Text("Puan durumu alınamadı (bu lig şu an tablo yayınlamıyor olabilir).", color = Dim, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
+                g.isNullOrEmpty() -> Text("Puan durumu alınamadı (bu lig şu an tablo yayınlamıyor olabilir).\n\nHata: " + com.fatih.skor.data.Espn.lastError, color = Dim, textAlign = TextAlign.Center, modifier = Modifier.align(Alignment.Center).padding(24.dp))
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     g.forEach { group ->
                         item {

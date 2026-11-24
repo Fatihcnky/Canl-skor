@@ -73,7 +73,7 @@ fun MatchesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
         Box(Modifier.fillMaxSize()) {
             when {
                 loading && all.isEmpty() -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                failed && all.isEmpty() -> Text("Veri alınamadı. İnternetini kontrol et, sonra tekrar dene.", color = Dim, modifier = Modifier.align(Alignment.Center).padding(24.dp), textAlign = TextAlign.Center)
+                failed && all.isEmpty() -> Text("Veri alınamadı. İnternetini kontrol et, sonra tekrar dene.\n\nHata: " + com.fatih.skor.data.Espn.lastError, color = Dim, modifier = Modifier.align(Alignment.Center).padding(24.dp), textAlign = TextAlign.Center)
                 shown.isEmpty() -> Text("Bu gün için maç yok.", color = Dim, modifier = Modifier.align(Alignment.Center))
                 else -> LazyColumn(Modifier.fillMaxSize()) {
                     val groups = shown.groupBy { it.league }.toSortedMap(compareBy { l -> LEAGUES.indexOf(l) })

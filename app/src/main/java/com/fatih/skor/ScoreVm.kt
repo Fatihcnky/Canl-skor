@@ -10,6 +10,7 @@ import com.fatih.skor.data.League
 import com.fatih.skor.data.Match
 import com.fatih.skor.data.StandGroup
 import com.fatih.skor.data.Store
+import com.fatih.skor.widget.GoalService
 import com.fatih.skor.widget.WidgetUpdater
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,6 +27,7 @@ class ScoreVm(app: Application) : AndroidViewModel(app) {
     val favs = MutableStateFlow(store.favs())
     val favMatches = MutableStateFlow<List<Match>>(emptyList())
     val widgetLeague = MutableStateFlow(store.widgetLeague)
+    val alertMode = MutableStateFlow(store.alertMode)
 
     val standLeague = MutableStateFlow(LEAGUES.first())
     val standings = MutableStateFlow<List<StandGroup>?>(null)
@@ -80,6 +82,12 @@ class ScoreVm(app: Application) : AndroidViewModel(app) {
     fun toggleFav(id: String, name: String) {
         favs.value = store.toggleFav(id, name)
         WidgetUpdater.updateAll(getApplication())
+    }
+
+    fun setAlert(mode: Int) {
+        store.alertMode = mode
+        alertMode.value = mode
+        GoalService.sync(getApplication())
     }
 
     fun setWidgetLeague(slug: String) {

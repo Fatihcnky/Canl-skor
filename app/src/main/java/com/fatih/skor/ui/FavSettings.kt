@@ -61,8 +61,27 @@ fun FavoritesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
 @Composable
 fun SettingsScreen(vm: ScoreVm, modifier: Modifier) {
     val wl by vm.widgetLeague.collectAsStateWithLifecycle()
+    val alert by vm.alertMode.collectAsStateWithLifecycle()
+    var pending by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(-1) }
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { _ -> if (pending >= 0) vm.setAlert(pending); pending = -1 }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    fun chooseAlert(mode: Int) {
+        val need = mode > 0 && android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (need) { pending = mode; permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) } else vm.setAlert(mode)
+    }
     Column(modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Ayarlar", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Gol bildirimleri", fontWeight = FontWeight.SemiBold)
+        Text("Açıkken uygulama arka planda skorları izler ve gol, maç başladı, maç bitti bildirimi gönderir. Telefonda sürekli \"Gol takibi açık\" bildirimi görünür; pil kullanımı biraz artar. Telefon yeniden başlarsa uygulamayı bir kez açman gerekir.", color = Dim, fontSize = 13.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = alert == 0, onClick = { chooseAlert(0) }, label = { Text("Kapalı") })
+            FilterChip(selected = alert == 1, onClick = { chooseAlert(1) }, label = { Text("Favori takımlar") })
+            FilterChip(selected = alert == 2, onClick = { chooseAlert(2) }, label = { Text("Widget ligi") })
+        }
         Text("Widget ligi", fontWeight = FontWeight.SemiBold)
         Text("Ana ekrana eklediğin widget'lar bu ligi gösterir. Favori takımın varsa maç widget'ında onların maçları öne çıkar.", color = Dim, fontSize = 13.sp)
         LEAGUES.chunked(2).forEach { row ->

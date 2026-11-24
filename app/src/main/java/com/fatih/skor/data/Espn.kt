@@ -37,13 +37,27 @@ object Espn {
         .connectTimeout(10, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).build()
     private val ymd = DateTimeFormatter.ofPattern("yyyyMMdd")
 
+    /** Son hatanın kısa açıklaması (ekranda gösterilir; sorun bildirirken işe yarar). */
+    @Volatile var lastError: String = ""
+
     private suspend fun get(url: String): JsonObject? = withContext(Dispatchers.IO) {
-        runCatching {
-            val req = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Android) Skor").build()
+        try {
+            val req = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Linux; Android 14) Skor")
+                .header("Accept", "application/json").build()
             client.newCall(req).execute().use { r ->
-                if (!r.isSuccessful) null else json.parseToJsonElement(r.body!!.string()).o()
+                if (!r.isSuccessful) {
+                    lastError = "HTTP ${r.code} · " + url.substringAfter("soccer/").take(60)
+                    null
+                } else {
+                    val el = json.parseToJsonElement(r.body!!.string()).o()
+                    if (el == null) lastError = "Beklenmeyen yanıt biçimi"
+                    el
+                }
             }
-        }.getOrNull()
+        } catch (e: Exception) {
+            lastError = (e.javaClass.simpleName + ": " + (e.message ?: "")).take(90)
+            null
+        }
     }
 
     private fun parseTime(s: String?): Instant? {
@@ -85,9 +99,18 @@ object Espn {
     }
 
     suspend fun league(league: League, from: LocalDate, to: LocalDate): List<Match>? {
-        val url = "$SITE/${league.slug}/scoreboard?dates=${ymd.format(from)}-${ymd.format(to)}&limit=300"
-        val root = get(url) ?: return null
-        return root.arr("events")?.mapNotNull { it.o()?.let { e -> parseEvent(e, league) } } ?: emptyList()
+        val base = "$SITE/${league.slug}/scoreboard"
+        val roots = ArrayList<JsonObject>()
+        val r = get("$base?dates=${ymd.format(from)}-${ymd.format(to)}")
+        if (r != null) roots += r else {
+            // Aralık sorgusu reddedilirse gün gün dene, o da olmazsa varsayılan günü al
+            var d = from
+            while (!d.isAfter(to)) { get("$base?dates=${ymd.format(d)}")?.let { roots += it }; d = d.plusDays(1) }
+            if (roots.isEmpty()) get(base)?.let { roots += it }
+        }
+        if (roots.isEmpty()) return null
+        return roots.flatMap { root -> root.arr("events")?.mapNotNull { it.o()?.let { e -> parseEvent(e, league) } } ?: emptyList() }
+            .distinctBy { it.id }
     }
 
     /** Seçili günün (yerel saat) tüm lig maçları. Hepsi başarısızsa null. */
