@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,7 +63,12 @@ fun SkorTheme(content: @Composable () -> Unit) {
         ),
         typography = SkorTypography,
         shapes = Shapes(small = CircleShape, medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(0.dp)),
-        content = content,
+        content = {
+            // Scaffold dışındaki ekranlarda (ör. maç detayı) yazı/ikon rengi siyaha düşmesin
+            androidx.compose.material3.Surface(
+                modifier = Modifier.fillMaxSize(), color = Bg, contentColor = Color.White, content = content,
+            )
+        },
     )
 }
 
