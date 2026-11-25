@@ -54,14 +54,26 @@ data class StandRow(
 
 data class StandGroup(val name: String, val rows: List<StandRow>)
 
-data class Ev(val minute: String, val kind: String, val text: String, val teamId: String?)
+data class Ev(
+    val minute: String, val kind: String, val text: String, val teamId: String?,
+    val text2: String? = null, val score: String? = null, val note: String? = null,
+)
 data class StatRow(val label: String, val home: String, val away: String)
-data class Player(val name: String, val jersey: String, val pos: String)
+data class Player(val name: String, val jersey: String, val pos: String, val place: Int = 0)
 data class Lineup(val team: Team, val formation: String?, val starters: List<Player>, val bench: List<Player>)
+data class Info(
+    val venue: String?, val city: String?, val referee: String?, val attendance: String?, val broadcasts: List<String>,
+)
+data class FormGame(val result: String, val score: String, val oppName: String, val oppLogo: String?)
+data class Comment(val minute: String, val text: String)
 
 data class Detail(
     val match: Match?,
     val events: List<Ev>,
     val stats: List<StatRow>,
     val lineups: List<Lineup>,
+    val info: Info? = null,
+    val formHome: List<FormGame> = emptyList(),
+    val formAway: List<FormGame> = emptyList(),
+    val comments: List<Comment> = emptyList(),
 )

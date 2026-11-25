@@ -170,49 +170,102 @@ object Espn {
                 )
             }
         }
-        val events = root.arr("keyEvents")?.mapNotNull { it.o() }?.mapNotNull { k ->
+        // Olaylar (gol, kart, değişiklik) + akan skor
+        val rawEvents = root.arr("keyEvents")?.mapNotNull { it.o() } ?: emptyList()
+        var hs = 0; var asc = 0
+        val events = rawEvents.mapNotNull { k ->
             val type = k.obj("type").str("text") ?: return@mapNotNull null
             val low = type.lowercase()
             val kind = when {
-                "goal" in low || "penalty - scored" in low -> "goal"
+                "goal" in low || "penalty - scored" in low || "scored" in low -> "goal"
                 "yellow" in low -> "yellow"
                 "red" in low -> "red"
                 "substitution" in low -> "sub"
                 "var" in low -> "var"
                 else -> return@mapNotNull null
             }
+            val tid = k.obj("team").str("id")
             val who = k.arr("participants")?.firstOrNull().o().obj("athlete").str("displayName")
-            Ev(
-                minute = k.obj("clock").str("displayValue") ?: "",
-                kind = kind,
-                text = who ?: k.str("shortText") ?: k.str("text") ?: type,
-                teamId = k.obj("team").str("id"),
-            )
-        } ?: emptyList()
+            var text = who ?: k.str("shortText") ?: k.str("text") ?: type
+            var text2: String? = null
+            if (kind == "sub") {
+                val full = k.str("text") ?: k.str("shortText") ?: ""
+                val m = Regex("""\.\s*(.+?) replaces (.+?)\.?$""").find(full) ?: Regex("""(.+?) replaces (.+?)\.?$""").find(full)
+                if (m != null) { text = m.groupValues[1].trim(); text2 = m.groupValues[2].trim() }
+                else {
+                    val ps = k.arr("participants")?.mapNotNull { it.o().obj("athlete").str("displayName") } ?: emptyList()
+                    if (ps.size >= 2) { text = ps[0]; text2 = ps[1] }
+                }
+            }
+            var score: String? = null
+            var note: String? = null
+            if (kind == "goal") {
+                val own = "own" in low
+                if (own) note = "k.k."
+                if ("penalty" in low) note = "pen."
+                val forHome = (tid == base.home.id) != own
+                if (forHome) hs++ else asc++
+                score = "$hs - $asc"
+            }
+            Ev(k.obj("clock").str("displayValue") ?: "", kind, text, tid, text2, score, note)
+        }
+        // İstatistik
         val teams = root.obj("boxscore").arr("teams")?.mapNotNull { it.o() } ?: emptyList()
         val homeStats = teams.firstOrNull { it.obj("team").str("id") == base.home.id }
         val awayStats = teams.firstOrNull { it.obj("team").str("id") == base.away.id }
         val wanted = listOf(
             "possessionPct" to "Topla oynama (%)", "totalShots" to "Şut", "shotsOnTarget" to "İsabetli şut",
-            "wonCorners" to "Korner", "foulsCommitted" to "Faul", "yellowCards" to "Sarı kart",
-            "redCards" to "Kırmızı kart", "offsides" to "Ofsayt", "saves" to "Kurtarış",
+            "blockedShots" to "Engellenen şut", "wonCorners" to "Korner", "foulsCommitted" to "Faul",
+            "offsides" to "Ofsayt", "saves" to "Kurtarış", "accuratePasses" to "İsabetli pas",
+            "totalPasses" to "Pas", "passPct" to "Pas isabeti", "effectiveTackles" to "Başarılı müdahale",
+            "interceptions" to "Top kapma", "totalClearance" to "Uzaklaştırma",
+            "yellowCards" to "Sarı kart", "redCards" to "Kırmızı kart",
         )
         fun sv(t: JsonObject?, n: String) = t.arr("statistics")?.mapNotNull { it.o() }?.firstOrNull { it.str("name") == n }?.str("displayValue")
         val stats = wanted.mapNotNull { (n, label) ->
             val hv = sv(homeStats, n); val av = sv(awayStats, n)
-            if (hv == null && av == null) null else StatRow(label, hv ?: "-", av ?: "-")
+            if (hv == null && av == null) null else StatRow(label, hv ?: "0", av ?: "0")
         }
+        // Kadrolar
         val lineups = root.arr("rosters")?.mapNotNull { it.o() }?.mapNotNull { r ->
             val t = team(r.obj("team")) ?: return@mapNotNull null
             val all = r.arr("roster")?.mapNotNull { it.o() } ?: emptyList()
             fun pl(p: JsonObject) = Player(
                 p.obj("athlete").str("displayName") ?: p.obj("athlete").str("fullName") ?: "?",
                 p.str("jersey") ?: "", p.obj("position").str("abbreviation") ?: "",
+                p.str("formationPlace")?.toIntOrNull() ?: 0,
             )
             val starters = all.filter { it["starter"].s() == "true" }.map(::pl)
             val bench = all.filter { it["starter"].s() != "true" }.map(::pl)
             Lineup(t, r.str("formation"), starters, bench)
         } ?: emptyList()
-        return Detail(match, events, stats, lineups)
+        // Maç bilgisi
+        val gi = root.obj("gameInfo")
+        val ven = gi.obj("venue")
+        val broadcasts = (comp.arr("broadcasts") ?: root.arr("broadcasts"))?.mapNotNull {
+            it.o().obj("media").str("shortName") ?: it.o().str("shortName") ?: it.o().obj("station").str("name")
+        }?.distinct() ?: emptyList()
+        val info = Info(
+            venue = ven.str("fullName"),
+            city = listOfNotNull(ven.obj("address").str("city"), ven.obj("address").str("country")).joinToString(", ").ifBlank { null },
+            referee = gi.arr("officials")?.firstOrNull().o().let { it.str("displayName") ?: it.str("fullName") },
+            attendance = gi.str("attendance")?.takeIf { it != "0" },
+            broadcasts = broadcasts,
+        )
+        // Takım formu (son maçlar)
+        fun form(teamId: String): List<FormGame> {
+            val f = root.obj("boxscore").arr("form")?.mapNotNull { it.o() }?.firstOrNull { it.obj("team").str("id") == teamId }
+            return f.arr("events")?.mapNotNull { it.o() }?.take(5)?.mapNotNull { e ->
+                val res = e.str("gameResult") ?: return@mapNotNull null
+                FormGame(res, e.str("score") ?: "", e.obj("opponent").str("displayName") ?: e.obj("opponent").str("shortDisplayName") ?: "",
+                    e.obj("opponent").str("logo"))
+            } ?: emptyList()
+        }
+        // Yorumlar
+        val comments = root.arr("commentary")?.mapNotNull { it.o() }?.mapNotNull { c ->
+            val t = c.str("text") ?: return@mapNotNull null
+            Comment(c.obj("time").str("displayValue") ?: "", t)
+        }?.reversed() ?: emptyList()
+        return Detail(match, events, stats, lineups, info, form(base.home.id), form(base.away.id), comments)
     }
 }

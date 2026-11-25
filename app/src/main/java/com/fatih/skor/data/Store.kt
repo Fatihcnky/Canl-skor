@@ -28,6 +28,15 @@ class Store(ctx: Context) {
         get() = p.getInt("alert_mode", 0)
         set(v) { p.edit().putInt("alert_mode", v).apply() }
 
+    /** Zil simgesiyle takip edilen maçlar (maç kimliği) */
+    fun watched(): Set<String> = p.getStringSet("watched", emptySet())?.toSet() ?: emptySet()
+    fun toggleWatch(id: String): Set<String> {
+        val s = watched().toMutableSet()
+        if (!s.remove(id)) s.add(id)
+        p.edit().putStringSet("watched", s).apply()
+        return s
+    }
+
     fun saveCache(key: String, payload: WidgetPayload) {
         p.edit().putString("cache_$key", Json.encodeToString(payload)).apply()
     }
@@ -36,8 +45,13 @@ class Store(ctx: Context) {
         runCatching { Json.decodeFromString<WidgetPayload>(p.getString("cache_$key", null) ?: return null) }.getOrNull()
 }
 
+/** Widget satırı: type = day | match | stand */
 @Serializable
-data class WRow(val left: String, val mid: String, val right: String, val live: Boolean = false)
+data class WItem(
+    val type: String, val a: String = "", val b: String = "", val c: String = "",
+    val d: String = "", val e: String = "", val live: Boolean = false,
+    val logo1: String? = null, val logo2: String? = null,
+)
 
 @Serializable
-data class WidgetPayload(val title: String, val updated: String, val rows: List<WRow>)
+data class WidgetPayload(val title: String, val updated: String, val items: List<WItem>)
