@@ -16,10 +16,8 @@ import androidx.core.content.ContextCompat
 import com.fatih.skor.MainActivity
 import com.fatih.skor.R
 import com.fatih.skor.data.Espn
-import com.fatih.skor.data.LEAGUES
 import com.fatih.skor.data.Match
 import com.fatih.skor.data.Store
-import com.fatih.skor.data.leagueOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,8 +29,9 @@ import java.time.Instant
 import java.time.LocalDate
 
 /**
- * Gol/maç başladı/maç bitti bildirimleri. Sunucu olmadığı için uygulama kendisi arka planda
- * (kalıcı bir "takip açık" bildirimiyle) skorları yoklar: canlı maç varken 30 sn, yoksa seyrek.
+ * Favori / zil açık maçlar için bildirimler. Sunucu olmadığı için uygulama kendisi arka planda skorları yoklar.
+ * Android, arka planda çalışan servisin sessiz bir bildirimi olmasını zorunlu kılar; kanal en düşük önemde
+ * (durum çubuğunda simge görünmez, metin yok).
  */
 class GoalService : Service() {
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -54,31 +53,34 @@ class GoalService : Service() {
 
     private fun ongoing(): Notification = NotificationCompat.Builder(this, CH_SERVICE)
         .setSmallIcon(R.drawable.ic_notif)
-        .setContentTitle("Gol takibi açık")
-        .setContentText("Canlı skorlar arka planda izleniyor")
+        .setContentTitle("Skor")
         .setOngoing(true)
+        .setSilent(true)
+        .setShowWhen(false)
+        .setPriority(NotificationCompat.PRIORITY_MIN)
+        .setVisibility(NotificationCompat.VISIBILITY_SECRET)
         .setContentIntent(openApp(this))
         .build()
 
+    private val scores = HashMap<String, Pair<Int, Int>>()
+    private val phases = HashMap<String, String>()
+    private val seenEvents = HashMap<String, MutableSet<String>>()
+
     private suspend fun loop() {
         val store = Store(this)
-        val seen = HashMap<String, Pair<Int, Int>>()
-        val states = HashMap<String, String>()
         while (scope.isActive) {
-            val mode = store.alertMode
-            if (mode == 0) { stopSelf(); return }
+            if (store.alertMode == 0 || !store.hasTargets()) { stopSelf(); return }
             val today = LocalDate.now()
-            val leagues = if (mode == 2) listOf(leagueOf(store.widgetLeague)) else LEAGUES
-            val all = Espn.range(today.minusDays(1), today.plusDays(1), leagues)
+            val all = Espn.range(today.minusDays(1), today.plusDays(1))
             var wait = 60_000L
             if (all != null) {
-                val favs = store.favs()
-                val rel = if (mode == 2) all else all.filter { it.home.id in favs || it.away.id in favs }
-                for (m in rel) check(m, seen, states)
+                val rel = all.filter { store.bellOn(it) }
+                for (m in rel) runCatching { process(store, m) }
                 val now = Instant.now()
+                val horizon = (maxOf(store.remindMin, 90) + 5) * 60L
                 wait = when {
                     rel.any { it.live } -> 30_000L
-                    rel.any { it.state == "pre" && it.time != null && it.time.isBefore(now.plusSeconds(1800)) } -> 60_000L
+                    rel.any { it.state == "pre" && it.time != null && it.time.isBefore(now.plusSeconds(horizon)) } -> 60_000L
                     else -> 300_000L
                 }
             }
@@ -86,33 +88,87 @@ class GoalService : Service() {
         }
     }
 
-    private suspend fun check(m: Match, seen: HashMap<String, Pair<Int, Int>>, states: HashMap<String, String>) {
-        val prevState = states.put(m.id, m.state)
-        val cur = (m.homeScore ?: 0) to (m.awayScore ?: 0)
-        val prev = seen.put(m.id, cur)
-        val score = "${m.home.short} ${cur.first}-${cur.second} ${m.away.short}"
-        if (prevState == "pre" && m.live) notify(m, "Maç başladı", "${m.home.name} - ${m.away.name}", 1)
-        if (prevState == "in" && m.finished) notify(m, "Maç bitti", score, 3)
-        if (m.live && prev != null && cur.first + cur.second > prev.first + prev.second) {
-            // Golü atan oyuncuyu maç detayından bulmayı dene (olmazsa yalnız skor)
-            val scorer = runCatching {
-                Espn.detail(m.league, m.id, m)?.events?.lastOrNull { it.kind == "goal" }?.text
-            }.getOrNull()
-            notify(m, "⚽ GOL! $score", listOfNotNull(scorer, m.clock.ifBlank { null }).joinToString(" · ").ifBlank { m.league.name }, 2)
+    private fun phaseOf(m: Match): String {
+        val t = m.statusText.lowercase()
+        return when {
+            m.state == "in" && (t.contains("ht") || t.contains("half")) && !t.contains("1st") && !t.contains("2nd") -> "ht"
+            else -> m.state
         }
     }
 
-    private fun notify(m: Match, title: String, text: String, kind: Int) {
+    private suspend fun process(store: Store, m: Match) {
+        val cur = (m.homeScore ?: 0) to (m.awayScore ?: 0)
+        val score = "${m.home.short} ${cur.first}-${cur.second} ${m.away.short}"
+        val phase = phaseOf(m)
+        val prevPhase = phases.put(m.id, phase)
+        val prevScore = scores.put(m.id, cur)
+
+        if (prevPhase != null) {
+            if (prevPhase == "pre" && phase == "in" && store.flag("start")) notify(m, "Maç başladı", "${m.home.name} - ${m.away.name}", "start")
+            if (prevPhase == "in" && phase == "ht" && store.flag("ht")) notify(m, "Devre arası", score, "ht")
+            if (prevPhase == "ht" && phase == "in" && store.flag("h2")) notify(m, "İkinci yarı başladı", score, "h2")
+            if ((prevPhase == "in" || prevPhase == "ht") && phase == "post" && store.flag("end")) notify(m, "Maç sonucu", score, "end")
+        }
+
+        if (m.live) {
+            var detail: com.fatih.skor.data.Detail? = null
+            if (prevScore != null && cur.first + cur.second > prevScore.first + prevScore.second && store.flag("goal")) {
+                detail = Espn.detail(m.league, m.id, m)
+                val g = detail?.events?.lastOrNull { it.kind == "goal" }
+                notify(m, "⚽ GOL! $score", listOfNotNull(g?.text, m.clock.ifBlank { null }).joinToString(" · ").ifBlank { m.league.name }, "goal${cur.first}-${cur.second}")
+            }
+            if (store.flag("sub") || store.flag("card")) {
+                val d = detail ?: Espn.detail(m.league, m.id, m)
+                if (d != null) {
+                    val keys = d.events.map { "${it.kind}|${it.minute}|${it.text}|${it.teamId}" }
+                    val seen = seenEvents[m.id]
+                    if (seen == null) seenEvents[m.id] = keys.toMutableSet()
+                    else d.events.forEach { e ->
+                        val k = "${e.kind}|${e.minute}|${e.text}|${e.teamId}"
+                        if (seen.add(k)) {
+                            val who = if (e.teamId == m.home.id) m.home.short else m.away.short
+                            when {
+                                e.kind == "yellow" && store.flag("card") -> notify(m, "🟨 Sarı kart · ${e.minute}", "${e.text} ($who)", k)
+                                e.kind == "red" && store.flag("card") -> notify(m, "🟥 Kırmızı kart · ${e.minute}", "${e.text} ($who)", k)
+                                e.kind == "sub" && store.flag("sub") -> notify(m, "🔁 Oyuncu değişikliği · ${e.minute}", "$who: ${e.text}" + (e.text2?.let { " ← $it" } ?: ""), k)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (m.state == "pre" && m.time != null) {
+            val mins = java.time.Duration.between(Instant.now(), m.time).toMinutes()
+            val rm = store.remindMin
+            if (store.flag("remind") && mins in 1..rm.toLong() && !store.sent("rm:${m.id}:$rm")) {
+                store.markSent("rm:${m.id}:$rm")
+                notify(m, "⏰ $mins dk sonra maç", "${m.home.name} - ${m.away.name} · ${m.timeText()}", "remind")
+            }
+            if (store.flag("lineup") && mins in -5..90 && !store.sent("lu:${m.id}")) {
+                val d = Espn.detail(m.league, m.id, m)
+                if (d != null && d.lineups.size >= 2 && d.lineups.all { it.starters.isNotEmpty() }) {
+                    store.markSent("lu:${m.id}")
+                    notify(m, "Kadrolar açıklandı", "${m.home.name} - ${m.away.name}: ilk 11'leri gör", "lineup", tab = 3)
+                }
+            }
+        }
+    }
+
+    private fun Match.timeText(): String = time?.atZone(java.time.ZoneId.systemDefault())?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) ?: ""
+
+    private fun notify(m: Match, title: String, text: String, kind: String, tab: Int = 0) {
         val n = NotificationCompat.Builder(this, CH_GOALS)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle(title)
             .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
-            .setContentIntent(openApp(this))
+            .setContentIntent(openMatch(this, m.league.slug, m.id, tab))
             .build()
         runCatching {
-            NotificationManagerCompat.from(this).notify((m.id + kind + System.currentTimeMillis() / 1000).hashCode(), n)
+            NotificationManagerCompat.from(this).notify((m.id + kind).hashCode(), n)
         } // izin verilmediyse sessizce geçer
     }
 
@@ -123,7 +179,7 @@ class GoalService : Service() {
         fun ensureChannels(ctx: Context) {
             val nm = ctx.getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(NotificationChannel(CH_GOALS, "Gol ve maç bildirimleri", NotificationManager.IMPORTANCE_HIGH))
-            nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "Gol takibi (arka plan)", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "Arka plan (sessiz)", NotificationManager.IMPORTANCE_MIN))
         }
 
         fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
@@ -131,9 +187,17 @@ class GoalService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
+        fun openMatch(ctx: Context, league: String, id: String, tab: Int = 0): PendingIntent = PendingIntent.getActivity(
+            ctx, (id + tab).hashCode(),
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra("mleague", league).putExtra("mid", id).putExtra("tab", tab),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         fun sync(ctx: Context) {
             val app = ctx.applicationContext
-            if (Store(app).alertMode != 0) {
+            val st = Store(app)
+            if (st.alertMode != 0 && st.hasTargets()) {
                 runCatching { ContextCompat.startForegroundService(app, Intent(app, GoalService::class.java)) }
             } else {
                 app.stopService(Intent(app, GoalService::class.java))

@@ -149,6 +149,14 @@ object Espn {
         }.filter { it.rows.isNotEmpty() }
     }
 
+    /** Bildirim / widget'tan gelen (lig, maç kimliği) çiftinden maçı kurar. */
+    suspend fun matchById(league: League, id: String): Match? {
+        val root = get("$SITE/${league.slug}/summary?event=$id") ?: return null
+        val h = root.obj("header") ?: return null
+        val withId = JsonObject(h + ("id" to JsonPrimitive(id)))
+        return parseEvent(withId, league)
+    }
+
     suspend fun detail(league: League, id: String, base: Match): Detail? {
         val root = get("$SITE/${league.slug}/summary?event=$id") ?: return null
         // Güncel skor/durum
@@ -234,6 +242,9 @@ object Espn {
                 p.obj("athlete").str("displayName") ?: p.obj("athlete").str("fullName") ?: "?",
                 p.str("jersey") ?: "", p.obj("position").str("abbreviation") ?: "",
                 p.str("formationPlace")?.toIntOrNull() ?: 0,
+                (p.arr("stats")?.mapNotNull { it.o() }?.firstOrNull { st ->
+                    st.str("name")?.lowercase() in setOf("rating", "matchrating", "playerrating")
+                }?.let { st -> st.str("displayValue") ?: st.str("value") }) ?: p.str("rating"),
             )
             val starters = all.filter { it["starter"].s() == "true" }.map(::pl)
             val bench = all.filter { it["starter"].s() != "true" }.map(::pl)

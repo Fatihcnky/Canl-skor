@@ -11,10 +11,22 @@ import com.fatih.skor.widget.WidgetUpdater
 class MainActivity : ComponentActivity() {
     private val vm: ScoreVm by viewModels()
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
+    private fun handle(i: android.content.Intent?) {
+        val id = i?.getStringExtra("mid") ?: return
+        vm.open(i.getStringExtra("mleague"), id, i.getIntExtra("tab", 0))
+        i.removeExtra("mid")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WidgetUpdater.schedule(this)
         com.fatih.skor.widget.GoalService.sync(this) // bildirimler açıksa takip servisini (yeniden) başlat
+        handle(intent)
         setContent { SkorTheme { SkorApp(vm) } }
     }
 }

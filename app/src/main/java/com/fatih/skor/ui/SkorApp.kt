@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fatih.skor.ScoreVm
@@ -40,10 +41,25 @@ import com.fatih.skor.data.Match
 fun SkorApp(vm: ScoreVm) {
     var tab by rememberSaveable { mutableStateOf(0) }
     var detail by remember { mutableStateOf<Match?>(null) }
+    var startTab by remember { mutableStateOf(0) }
+    val req by vm.openReq.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(req) {
+        req?.let { (m, t) -> detail = m; startTab = t; vm.openReq.value = null }
+    }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    ) { _ -> }
+    val ask: () -> Unit = {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
     val open = detail
     if (open != null) {
         BackHandler { detail = null }
-        DetailScreen(vm, open) { detail = null }
+        DetailScreen(vm, open, startTab, ask) { detail = null }
     } else {
         Scaffold(
             containerColor = Bg,
@@ -75,9 +91,9 @@ fun SkorApp(vm: ScoreVm) {
         ) { pad ->
             val m = Modifier.padding(pad)
             when (tab) {
-                0 -> MatchesScreen(vm, m) { detail = it }
+                0 -> MatchesScreen(vm, m, ask) { detail = it; startTab = 0 }
                 1 -> TableScreen(vm, m)
-                2 -> FavoritesScreen(vm, m) { detail = it }
+                2 -> FavoritesScreen(vm, m, ask) { detail = it; startTab = 0 }
                 else -> SettingsScreen(vm, m)
             }
         }

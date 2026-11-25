@@ -59,7 +59,7 @@ data class Ev(
     val text2: String? = null, val score: String? = null, val note: String? = null,
 )
 data class StatRow(val label: String, val home: String, val away: String)
-data class Player(val name: String, val jersey: String, val pos: String, val place: Int = 0)
+data class Player(val name: String, val jersey: String, val pos: String, val place: Int = 0, val rating: String? = null)
 data class Lineup(val team: Team, val formation: String?, val starters: List<Player>, val bench: List<Player>)
 data class Info(
     val venue: String?, val city: String?, val referee: String?, val attendance: String?, val broadcasts: List<String>,

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,29 +31,30 @@ import com.fatih.skor.data.Match
 import java.time.ZoneId
 
 @Composable
-fun FavoritesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
+fun FavoritesScreen(vm: ScoreVm, modifier: Modifier, ask: () -> Unit, onOpen: (Match) -> Unit) {
     val favs by vm.favs.collectAsStateWithLifecycle()
     val all by vm.favMatches.collectAsStateWithLifecycle()
+    val rev by vm.rev.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.loadFavMatches() }
-    val mine = all.filter { it.home.id in favs || it.away.id in favs }
+    val favM = remember(rev) { vm.store.favMatchIds() }
+    val favL = remember(rev) { vm.store.favLeagueSlugs() }
+    val mine = all.filter { it.home.id in favs || it.away.id in favs || it.id in favM || it.league.slug in favL }
+    val byDay = mine.groupBy { it.localDate() ?: java.time.LocalDate.now() }.toSortedMap()
 
     Column(modifier.fillMaxSize().background(Bg)) {
         Text("Favoriler", color = Brand, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
-        if (favs.isEmpty()) {
-            Text("Henüz favori takım yok. Bir maça gir ve takım adının yanındaki ☆ simgesine dokun.", color = Dim, modifier = Modifier.padding(16.dp))
+        if (favs.isEmpty() && favM.isEmpty() && favL.isEmpty()) {
+            Text("Henüz favori yok. Maç listesinde bir maça veya lige ☆ ile, maç sayfasında takım adının yanındaki ☆ ile favori ekle. Favoriye eklenenlerin bildirimi (🔔) otomatik açılır.", color = Dim, modifier = Modifier.padding(16.dp))
         } else {
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(favs.values.joinToString(" · "), color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
-            }
-            if (mine.isEmpty()) Text("Önümüzdeki 7 günde favori takımlarının maçı görünmüyor.", color = Dim, modifier = Modifier.padding(16.dp))
+            val names = favs.values.toList() + favL.map { com.fatih.skor.data.leagueOf(it).name }
+            if (names.isNotEmpty()) Text(names.joinToString(" · "), color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+            if (mine.isEmpty()) Text("Önümüzdeki günlerde favori maç görünmüyor.", color = Dim, modifier = Modifier.padding(16.dp))
             LazyColumn(Modifier.fillMaxSize()) {
-                items(mine, key = { it.league.slug + it.id }) { m ->
-                    val d = m.time?.atZone(ZoneId.systemDefault())?.toLocalDate()
-                    Text(
-                        (d?.format(dayFmt) ?: "") + " · " + m.league.name, color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(16.dp, 10.dp, 16.dp, 2.dp),
-                    )
-                    MatchRow(m) { onOpen(m) }
+                byDay.forEach { (d, list) ->
+                    item(key = "d$d") {
+                        Text(dayHeader(d), fontWeight = FontWeight.Bold, color = Brand, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 2.dp))
+                    }
+                    items(list, key = { "m" + it.league.slug + it.id }) { m -> MatchItem(vm, m, ask) { onOpen(m) } }
                 }
             }
         }
@@ -76,12 +78,23 @@ fun SettingsScreen(vm: ScoreVm, modifier: Modifier) {
     }
     Column(modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Ayarlar", color = Brand, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Gol bildirimleri", fontWeight = FontWeight.SemiBold)
-        Text("Açıkken uygulama arka planda skorları izler ve gol, maç başladı, maç bitti bildirimi gönderir. Telefonda sürekli \"Gol takibi açık\" bildirimi görünür; pil kullanımı biraz artar. Telefon yeniden başlarsa uygulamayı bir kez açman gerekir.", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+        val rev by vm.rev.collectAsStateWithLifecycle()
+        Text("Bildirimler", fontWeight = FontWeight.SemiBold)
+        Text("Favori takım/maç/lig ve 🔔'i açık maçlar için bildirim gönderilir. Telefonun arka planda çalışması için Android sessiz bir bildirim satırı gösterir (durum çubuğunda simge ve metin çıkmaz). Telefon yeniden başlarsa uygulamayı bir kez açman gerekir.", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+        SwitchRow("Bildirimler açık", alert != 0) { chooseAlert(if (it) 1 else 0) }
+        val flags = listOf(
+            "start" to "Maç başladı", "ht" to "Devre arası", "h2" to "İkinci yarı başladı", "end" to "Maç sonucu",
+            "goal" to "Goller", "sub" to "Oyuncu değişikliği", "card" to "Kartlar", "lineup" to "Kadro açıklandı (ilk 11)",
+            "remind" to "Maç öncesi hatırlatma",
+        )
+        flags.forEach { (k, label) ->
+            val on = remember(rev) { vm.store.flag(k) }
+            SwitchRow(label, on) { vm.setFlag(k, it) }
+        }
+        val rm = remember(rev) { vm.store.remindMin }
+        Text("Hatırlatma: maçtan kaç dakika önce?", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SkorChip(selected = alert == 0, label = "Kapalı", onClick = { chooseAlert(0) })
-            SkorChip(selected = alert == 1, label = "Favori takımlar", onClick = { chooseAlert(1) })
-            SkorChip(selected = alert == 2, label = "Widget ligi", onClick = { chooseAlert(2) })
+            listOf(5, 15, 30, 60, 120).forEach { mnt -> SkorChip(selected = rm == mnt, label = "$mnt dk", onClick = { vm.setRemind(mnt) }) }
         }
         Text("Widget ligi", fontWeight = FontWeight.SemiBold)
         Text("Ana ekrana eklediğin widget'lar bu ligi gösterir. Favori takımın varsa maç widget'ında onların maçları öne çıkar.", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
@@ -95,5 +108,13 @@ fun SettingsScreen(vm: ScoreVm, modifier: Modifier) {
         Text("Veri kaynağı", fontWeight = FontWeight.SemiBold)
         Text("Skorlar ve tablolar ESPN'in herkese açık JSON uç noktalarından gelir. Resmî bir API olmadığı için bazen gecikebilir veya bir lig için veri gelmeyebilir.", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
         TextButton(onClick = { vm.refresh(false); vm.loadStandings(); vm.loadFavMatches() }) { Text("Tüm verileri yenile") }
+    }
+}
+
+@Composable
+private fun SwitchRow(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+        androidx.compose.material3.Switch(checked = on, onCheckedChange = onChange)
     }
 }

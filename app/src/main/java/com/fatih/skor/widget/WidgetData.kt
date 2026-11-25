@@ -31,20 +31,20 @@ object WidgetData {
         return WItem(
             "match", a = st, b = m.home.short, c = m.away.short,
             d = m.homeScore?.toString() ?: "", e = m.awayScore?.toString() ?: "",
-            live = m.live, logo1 = m.home.logo, logo2 = m.away.logo,
+            live = m.live, logo1 = m.home.logo, logo2 = m.away.logo, id = m.id, league = m.league.slug,
         )
     }
 
     private fun grouped(list: List<Match>): List<WItem> {
         val today = LocalDate.now()
         val out = mutableListOf<WItem>()
-        list.sortedBy { it.time }.groupBy { it.localDate() ?: today }.forEach { (d, ms) ->
-            val label = when (d) {
-                today -> "Bugün"; today.plusDays(1) -> "Yarın"; today.minusDays(1) -> "Dün"
-                else -> d.format(dayLabel).replaceFirstChar { it.uppercase() }
+        list.sortedBy { it.time }.groupBy { it.localDate() ?: today }.toSortedMap().forEach { (d, ms) ->
+            val base = d.format(DateTimeFormatter.ofPattern("dd.MM.yyyy EEEE", Locale("tr")))
+            out += WItem("day", a = if (d == today) "$base · Bugün" else base)
+            ms.groupBy { it.league }.toSortedMap(compareBy { l -> com.fatih.skor.data.LEAGUES.indexOf(l) }).forEach { (l, lm) ->
+                out += WItem("league", a = l.name)
+                lm.sortedBy { it.time }.forEach { out += item(it) }
             }
-            out += WItem("day", a = label)
-            ms.forEach { out += item(it) }
         }
         return out
     }
@@ -66,7 +66,7 @@ object WidgetData {
         if (list == null) {
             return store.loadCache("matches") ?: WidgetPayload(title, now(), listOf(WItem("msg", a = "Veri alınamadı")))
         }
-        val items = grouped(list.take(40))
+        val items = grouped(list.take(30))
         val payload = WidgetPayload(title, now(), items.ifEmpty { listOf(WItem("msg", a = "Yakında maç yok")) })
         store.saveCache("matches", payload)
         return payload

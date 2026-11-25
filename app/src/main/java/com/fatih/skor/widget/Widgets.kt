@@ -44,6 +44,8 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.fatih.skor.MainActivity
+import com.fatih.skor.R
+import androidx.glance.action.actionParametersOf
 import com.fatih.skor.data.WItem
 import com.fatih.skor.data.WidgetPayload
 
@@ -52,24 +54,24 @@ private val white = ColorProvider(Color.White)
 private val dim = ColorProvider(Color(0xBDFFFFFF))
 private val red = ColorProvider(Color(0xFFF4568B))
 
-private val brand = ColorProvider(Color(0xFF3D1FB8))
-private val panel = ColorProvider(Color(0xFF1C1B22))
+private val accent = ColorProvider(Color(0xFFBBFDFD))
+private val lav = ColorProvider(Color(0xFFDED6FE))
+private val KeyId = ActionParameters.Key<String>("mid")
+private val KeyLg = ActionParameters.Key<String>("mleague")
 
 @Composable
 private fun Body(p: WidgetPayload, logos: Map<String, Bitmap>) {
-    Column(GlanceModifier.fillMaxSize().background(bg)) {
-        Row(
-            GlanceModifier.fillMaxWidth().background(brand).padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(p.title, maxLines = 1, style = TextStyle(color = white, fontWeight = FontWeight.Bold, fontSize = 15.sp), modifier = GlanceModifier.defaultWeight())
-            Text("↻ ${p.updated}", style = TextStyle(color = white, fontSize = 12.sp), modifier = GlanceModifier.clickable(actionRunCallback<RefreshAction>()))
+    Column(GlanceModifier.fillMaxSize().background(ImageProvider(R.drawable.w_bg)).padding(8.dp)) {
+        Row(GlanceModifier.fillMaxWidth().padding(start = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(p.title, maxLines = 1, style = TextStyle(color = lav, fontWeight = FontWeight.Bold, fontSize = 15.sp), modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>()))
+            Text("↻ ${p.updated}", style = TextStyle(color = white, fontSize = 11.sp), modifier = GlanceModifier.background(ImageProvider(R.drawable.w_pill)).padding(horizontal = 9.dp, vertical = 3.dp).clickable(actionRunCallback<RefreshAction>()))
         }
-        LazyColumn(GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>())) {
+        LazyColumn(GlanceModifier.fillMaxSize()) {
             items(p.items.size) { i ->
                 val it = p.items[i]
                 when (it.type) {
-                    "day" -> Text(it.a, style = TextStyle(color = ColorProvider(Color(0xFFDED6FE)), fontWeight = FontWeight.Bold, fontSize = 12.sp), modifier = GlanceModifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, bottom = 2.dp))
+                    "day" -> Text(it.a, style = TextStyle(color = accent, fontWeight = FontWeight.Bold, fontSize = 12.sp), modifier = GlanceModifier.fillMaxWidth().padding(start = 6.dp, top = 8.dp, bottom = 2.dp))
+                    "league" -> Text(it.a, maxLines = 1, style = TextStyle(color = dim, fontSize = 11.sp), modifier = GlanceModifier.fillMaxWidth().padding(start = 6.dp, top = 3.dp, bottom = 2.dp))
                     "match" -> MatchRow(it, logos)
                     "stand" -> StandRow(it, logos)
                     else -> Text(it.a, style = TextStyle(color = dim, fontSize = 13.sp), modifier = GlanceModifier.padding(12.dp))
@@ -82,41 +84,43 @@ private fun Body(p: WidgetPayload, logos: Map<String, Bitmap>) {
 @Composable
 private fun Logo(url: String?, logos: Map<String, Bitmap>) {
     val b = url?.let { logos[it] }
-    if (b != null) Image(ImageProvider(b), null, modifier = GlanceModifier.size(18.dp))
-    else Spacer(GlanceModifier.size(18.dp))
+    if (b != null) Image(ImageProvider(b), null, modifier = GlanceModifier.size(20.dp))
+    else Spacer(GlanceModifier.size(20.dp))
 }
 
 @Composable
 private fun MatchRow(it: WItem, logos: Map<String, Bitmap>) {
     val c = if (it.live) red else white
-    Row(GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(it.a, maxLines = 1, style = TextStyle(color = if (it.live) red else dim, fontSize = 11.sp, fontWeight = if (it.live) FontWeight.Bold else FontWeight.Normal), modifier = GlanceModifier.width(44.dp))
-        Column(GlanceModifier.defaultWeight()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Logo(it.logo1, logos)
-                Text("  " + it.b, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp))
-            }
-            Row(GlanceModifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Logo(it.logo2, logos)
-                Text("  " + it.c, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp))
-            }
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(it.d, style = TextStyle(color = c, fontWeight = FontWeight.Bold, fontSize = 13.sp))
-            Text(it.e, style = TextStyle(color = c, fontWeight = FontWeight.Bold, fontSize = 13.sp), modifier = GlanceModifier.padding(top = 3.dp))
-        }
+    val open = actionStartActivity<MainActivity>(actionParametersOf(KeyId to it.id, KeyLg to it.league))
+    Row(
+        GlanceModifier.fillMaxWidth().padding(vertical = 2.dp).background(ImageProvider(if (it.live) R.drawable.w_card_live else R.drawable.w_card))
+            .padding(horizontal = 8.dp, vertical = 8.dp).clickable(open),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(it.a, maxLines = 1, style = TextStyle(color = if (it.live) red else dim, fontSize = 11.sp, fontWeight = if (it.live) FontWeight.Bold else FontWeight.Normal), modifier = GlanceModifier.width(36.dp))
+        Text(it.b, maxLines = 1, style = TextStyle(color = white, fontSize = 12.sp, textAlign = TextAlign.End), modifier = GlanceModifier.defaultWeight())
+        Spacer(GlanceModifier.width(4.dp))
+        Logo(it.logo1, logos)
+        Text(
+            if (it.d.isEmpty()) "-" else "${it.d} - ${it.e}", maxLines = 1,
+            style = TextStyle(color = c, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.Center),
+            modifier = GlanceModifier.width(46.dp).background(ImageProvider(R.drawable.w_score)).padding(vertical = 2.dp),
+        )
+        Logo(it.logo2, logos)
+        Spacer(GlanceModifier.width(4.dp))
+        Text(it.c, maxLines = 1, style = TextStyle(color = white, fontSize = 12.sp), modifier = GlanceModifier.defaultWeight())
     }
 }
 
 @Composable
 private fun StandRow(it: WItem, logos: Map<String, Bitmap>) {
-    Row(GlanceModifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(GlanceModifier.fillMaxWidth().padding(vertical = 2.dp).background(ImageProvider(R.drawable.w_card)).padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(it.a, style = TextStyle(color = dim, fontSize = 12.sp), modifier = GlanceModifier.width(22.dp))
         Logo(it.logo1, logos)
         Text("  " + it.b, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp), modifier = GlanceModifier.defaultWeight())
         Text(it.c, style = TextStyle(color = dim, fontSize = 12.sp), modifier = GlanceModifier.width(26.dp))
         Text(it.d, style = TextStyle(color = dim, fontSize = 12.sp), modifier = GlanceModifier.width(32.dp))
-        Text(it.e, style = TextStyle(color = white, fontWeight = FontWeight.Bold, fontSize = 13.sp), modifier = GlanceModifier.width(28.dp))
+        Text(it.e, style = TextStyle(color = accent, fontWeight = FontWeight.Bold, fontSize = 13.sp), modifier = GlanceModifier.width(28.dp))
     }
 }
 

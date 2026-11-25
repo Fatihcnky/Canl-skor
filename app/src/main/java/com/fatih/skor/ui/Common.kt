@@ -27,3 +27,10 @@ fun Match.statusShort(): String = when {
     finished -> "MS"
     else -> timeText()
 }
+
+val dayHeaderFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy EEEE", Locale("tr"))
+
+fun dayHeader(d: java.time.LocalDate): String {
+    val base = d.format(dayHeaderFmt)
+    return if (d == java.time.LocalDate.now()) "$base · Bugün" else base
+}

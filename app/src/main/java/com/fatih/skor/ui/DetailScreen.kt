@@ -65,10 +65,11 @@ private val Red = Color(0xFFE5534B)
 private val Grey = Color(0xFF8D93A0)
 
 @Composable
-fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
+fun DetailScreen(vm: ScoreVm, base: Match, startTab: Int, ask: () -> Unit, onBack: () -> Unit) {
     var d by remember { mutableStateOf<Detail?>(null) }
     var loaded by remember { mutableStateOf(false) }
-    var tab by remember { mutableStateOf(0) }
+    var tab by remember { mutableStateOf(startTab) }
+    val rev by vm.rev.collectAsStateWithLifecycle()
     val favs by vm.favs.collectAsStateWithLifecycle()
     val m = d?.match ?: base
 
@@ -85,7 +86,10 @@ fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF23009E), Bg), endY = 1000f))) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") }
-            Text(m.league.name, color = Dim, style = MaterialTheme.typography.bodyMedium)
+            Text(m.league.name, color = Dim, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            val star = remember(rev) { vm.store.favMatch(m.id) }
+            val bell = remember(rev, m.state) { vm.store.bellOn(m) }
+            StarBell(star, bell, { vm.starMatch(m); ask() }, { vm.bellMatch(m); ask() })
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TeamBox(m.home, favs.containsKey(m.home.id), Modifier.weight(1f)) { vm.toggleFav(m.home.id, m.home.name) }
@@ -100,7 +104,7 @@ fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
             }
             TeamBox(m.away, favs.containsKey(m.away.id), Modifier.weight(1f)) { vm.toggleFav(m.away.id, m.away.name) }
         }
-        val tabs = listOf("Ayrıntılar", "Olaylar", "İstatistik", "Kadro", "Tablo")
+        val tabs = listOf("Ayrıntılar", "Olaylar", "İstatistik", "Kadro", "Puan durumu")
         ScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, contentColor = Brand, edgePadding = 8.dp) {
             tabs.forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t, maxLines = 1) }) }
         }
@@ -141,7 +145,6 @@ private fun InfoTab(m: Match, det: Detail) {
         i.venue?.let { InfoRow("🏟", listOfNotNull(it, i.city).joinToString(", ")) }
         i.referee?.let { InfoRow("🟨", "Hakem: $it") }
         i.attendance?.let { InfoRow("👥", "Seyirci: $it") }
-        if (i.broadcasts.isNotEmpty()) InfoRow("📺", i.broadcasts.joinToString(", "))
     }
     if (det.formHome.isNotEmpty() || det.formAway.isNotEmpty()) {
         Panel {
@@ -244,53 +247,81 @@ private fun formationRows(formation: String?, starters: Int): List<Int>? {
 @Composable
 private fun LineupTab(m: Match, det: Detail) {
     if (det.lineups.isEmpty()) { Text("Kadro henüz açıklanmadı.", color = Dim); return }
-    var sel by remember { mutableStateOf(0) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        det.lineups.forEachIndexed { i, l -> SkorChip(selected = sel == i, label = l.team.short, onClick = { sel = i }) }
+    val home = det.lineups.firstOrNull { it.team.id == m.home.id } ?: det.lineups.first()
+    val away = det.lineups.firstOrNull { it.team.id == m.away.id } ?: det.lineups.getOrNull(1)
+    val hr = formationRows(home.formation, home.starters.size)
+    val ar = away?.let { formationRows(it.formation, it.starters.size) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("${home.team.short} · ${home.formation ?: "-"}", color = Dim, style = MaterialTheme.typography.labelMedium)
+        Text("${away?.team?.short ?: ""} · ${away?.formation ?: "-"}", color = Dim, style = MaterialTheme.typography.labelMedium)
     }
-    val l = det.lineups[sel.coerceIn(0, det.lineups.lastIndex)]
-    val rows = formationRows(l.formation, l.starters.size)
-    Text((l.formation ?: "Diziliş yok"), color = Dim, style = MaterialTheme.typography.labelMedium)
-    if (rows != null) Pitch(l, rows) else Panel {
-        l.starters.forEach { p -> Text("${p.jersey.padStart(2)}  ${p.name}  ${p.pos}", style = MaterialTheme.typography.bodyMedium) }
+    if (hr != null || ar != null) FullPitch(home, hr, away, ar)
+    listOfNotNull(home to hr, away?.let { it to ar }).forEach { (l, rows) ->
+        if (rows == null) Panel {
+            Text(l.team.name, style = MaterialTheme.typography.titleMedium, color = Brand)
+            l.starters.forEach { p -> PlayerLine(p) }
+        }
     }
-    if (l.bench.isNotEmpty()) Panel {
-        Text("Yedekler", style = MaterialTheme.typography.titleMedium, color = Brand)
-        l.bench.forEach { p -> Text("${p.jersey.padStart(2)}  ${p.name}", color = Dim, style = MaterialTheme.typography.bodyMedium) }
+    listOfNotNull(home, away).forEach { l ->
+        if (l.bench.isNotEmpty()) Panel {
+            Text("Yedekler · ${l.team.name}", style = MaterialTheme.typography.titleMedium, color = Brand)
+            l.bench.forEach { p -> PlayerLine(p) }
+        }
     }
 }
 
 @Composable
-private fun Pitch(l: Lineup, rows: List<Int>) {
-    val players = l.starters.sortedBy { if (it.place > 0) it.place else Int.MAX_VALUE }
+private fun PlayerLine(p: com.fatih.skor.data.Player) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(p.jersey.padStart(2), color = Dim, modifier = Modifier.width(30.dp), style = MaterialTheme.typography.bodyMedium)
+        Text(p.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(p.pos, color = Dim, style = MaterialTheme.typography.labelMedium)
+        p.rating?.let { Text("  $it", color = Green, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium) }
+    }
+}
+
+/** Tek saha: ev sahibi üst yarıda (kaleci üstte), deplasman alt yarıda (kaleci altta). */
+@Composable
+private fun FullPitch(home: Lineup, hr: List<Int>?, away: Lineup?, ar: List<Int>?) {
     BoxWithConstraints(
-        Modifier.fillMaxWidth().aspectRatio(0.75f).clip(RoundedCornerShape(20.dp))
-            .background(Brush.verticalGradient(listOf(Color(0xFF1B5E20), Color(0xFF2E7D32)))),
+        Modifier.fillMaxWidth().aspectRatio(0.62f).clip(RoundedCornerShape(20.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF1B5E20)))),
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val line = Color.White.copy(alpha = 0.35f); val st = Stroke(width = 3f)
             drawRect(line, Offset(12f, 12f), Size(size.width - 24f, size.height - 24f), style = st)
             drawLine(line, Offset(12f, size.height / 2), Offset(size.width - 12f, size.height / 2), strokeWidth = 3f)
             drawCircle(line, size.width * 0.13f, Offset(size.width / 2, size.height / 2), style = st)
-            val bw = size.width * 0.5f; val bh = size.height * 0.14f
+            val bw = size.width * 0.5f; val bh = size.height * 0.1f
             drawRect(line, Offset((size.width - bw) / 2, 12f), Size(bw, bh), style = st)
             drawRect(line, Offset((size.width - bw) / 2, size.height - 12f - bh), Size(bw, bh), style = st)
         }
-        var idx = 0
-        rows.forEachIndexed { r, n ->
-            val yFrac = if (rows.size == 1) 0.5f else 0.90f - 0.80f * (r.toFloat() / (rows.size - 1))
-            for (k in 0 until n) {
-                val p = players.getOrNull(idx++) ?: continue
-                val xFrac = (k + 1f) / (n + 1f)
-                Column(
-                    Modifier.offset(x = maxWidth * xFrac - 30.dp, y = maxHeight * yFrac - 24.dp).width(60.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
-                        Text(p.jersey, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                    Text(p.name.substringAfterLast(' '), color = Color.White, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        if (hr != null) HalfPlayers(home, hr, top = true)
+        if (away != null && ar != null) HalfPlayers(away, ar, top = false)
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.BoxWithConstraintsScope.HalfPlayers(l: Lineup, rows: List<Int>, top: Boolean) {
+    val players = l.starters.sortedBy { if (it.place > 0) it.place else Int.MAX_VALUE }
+    var idx = 0
+    rows.forEachIndexed { r, n ->
+        // Yarı sahada kaleciden forvete: 0.08 -> 0.90 (yarı sahanın oranı)
+        val f = if (rows.size == 1) 0.5f else 0.09f + 0.80f * (r.toFloat() / (rows.size - 1))
+        val yFrac = if (top) f * 0.5f else 1f - f * 0.5f
+        for (k in 0 until n) {
+            val p = players.getOrNull(idx++) ?: continue
+            val xRaw = (k + 1f) / (n + 1f)
+            val xFrac = if (top) xRaw else 1f - xRaw
+            Column(
+                Modifier.offset(x = maxWidth * xFrac - 30.dp, y = maxHeight * yFrac - 22.dp).width(60.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(Modifier.size(26.dp).clip(CircleShape).background(if (top) Color.White else Color(0xFF1E1E2A)), contentAlignment = Alignment.Center) {
+                    Text(p.jersey, color = if (top) Color.Black else Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                 }
+                Text(p.name.substringAfterLast(' '), color = Color.White, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                p.rating?.let { Text(it, color = Color(0xFFFFEB3B), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }

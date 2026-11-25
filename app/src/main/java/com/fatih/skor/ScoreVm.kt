@@ -35,6 +35,29 @@ class ScoreVm(app: Application) : AndroidViewModel(app) {
 
     private var job: Job? = null
 
+    /** Favori/zil değişince artar; ekranlar buna göre yeniden çizilir. */
+    val rev = MutableStateFlow(0)
+    /** Bildirim veya widget'tan açılması istenen maç (+ sekme). */
+    val openReq = MutableStateFlow<Pair<Match, Int>?>(null)
+
+    private fun changed() { rev.value++; GoalService.sync(getApplication()); WidgetUpdater.updateAll(getApplication()) }
+
+    fun starMatch(m: Match) { store.setFavMatch(m.id, !store.favMatch(m.id)); changed() }
+    fun bellMatch(m: Match) { store.setMatchBell(m.id, !store.bellOn(m)); changed() }
+    fun starLeague(slug: String) { store.setFavLeague(slug, !store.favLeague(slug)); changed() }
+    fun bellLeague(slug: String) { store.setLeagueBell(slug, !store.leagueBell(slug)); changed() }
+    fun setFlag(key: String, v: Boolean) { store.setFlag(key, v); rev.value++ }
+    fun setRemind(min: Int) { store.remindMin = min; rev.value++ }
+
+    fun open(league: String?, id: String?, tab: Int) {
+        if (league == null || id == null) return
+        viewModelScope.launch {
+            val l = com.fatih.skor.data.leagueOf(league)
+            val m = Espn.matchById(l, id) ?: matches.value.firstOrNull { it.id == id } ?: return@launch
+            openReq.value = m to tab
+        }
+    }
+
     init {
         refresh(false)
         loadStandings()
@@ -43,19 +66,18 @@ class ScoreVm(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             while (true) {
                 delay(45_000)
-                if (matches.value.any { it.live } || day.value == LocalDate.now()) refresh(true)
+                refresh(true)
             }
         }
     }
 
-    fun setDay(d: LocalDate) { day.value = d; refresh(false) }
 
     fun refresh(silent: Boolean) {
         job?.cancel()
         job = viewModelScope.launch {
             if (!silent) loading.value = true
-            val d = day.value
-            val r = Espn.day(d)
+            val today = LocalDate.now()
+            val r = Espn.range(today.minusDays(2), today.plusDays(6))
             failed.value = r == null
             if (r != null) matches.value = r
             loading.value = false
@@ -81,13 +103,13 @@ class ScoreVm(app: Application) : AndroidViewModel(app) {
 
     fun toggleFav(id: String, name: String) {
         favs.value = store.toggleFav(id, name)
-        WidgetUpdater.updateAll(getApplication())
+        changed()
     }
 
     fun setAlert(mode: Int) {
         store.alertMode = mode
         alertMode.value = mode
-        GoalService.sync(getApplication())
+        changed()
     }
 
     fun setWidgetLeague(slug: String) {
