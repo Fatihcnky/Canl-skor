@@ -38,7 +38,7 @@ object WidgetData {
     private fun grouped(list: List<Match>): List<WItem> {
         val today = LocalDate.now()
         val out = mutableListOf<WItem>()
-        list.sortedBy { it.time }.groupBy { it.localDate() }.forEach { (d, ms) ->
+        list.sortedBy { it.time }.groupBy { it.localDate() ?: today }.forEach { (d, ms) ->
             val label = when (d) {
                 today -> "Bugün"; today.plusDays(1) -> "Yarın"; today.minusDays(1) -> "Dün"
                 else -> d.format(dayLabel).replaceFirstChar { it.uppercase() }

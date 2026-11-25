@@ -44,6 +44,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.fatih.skor.MainActivity
+import com.fatih.skor.data.WItem
 import com.fatih.skor.data.WidgetPayload
 
 private val bg = ColorProvider(Color(0xFF121212))
