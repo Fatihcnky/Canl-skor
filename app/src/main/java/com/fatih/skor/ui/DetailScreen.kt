@@ -63,22 +63,22 @@ fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Bg)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") }
-            Text(m.league.name, color = Dim, fontSize = 14.sp)
+            Text(m.league.name, color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
         }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             TeamBox(m.home, favs.containsKey(m.home.id), Modifier.weight(1f)) { vm.toggleFav(m.home.id, m.home.name) }
             Column(Modifier.width(110.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (m.homeScore != null) {
-                    Text("${m.homeScore} - ${m.awayScore ?: 0}", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = if (m.live) LiveRed else Color.White)
-                    Text(if (m.live) m.clock.ifBlank { m.statusText } else if (m.finished) "Maç sonu" else m.statusText, color = if (m.live) LiveRed else Dim, fontSize = 13.sp)
+                    Text("${m.homeScore} - ${m.awayScore ?: 0}", style = androidx.compose.material3.MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = if (m.live) LiveRed else Color.White)
+                    Text(if (m.live) m.clock.ifBlank { m.statusText } else if (m.finished) "Maç sonu" else m.statusText, color = if (m.live) LiveRed else Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                 } else {
-                    Text(m.timeText(), fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Text(m.time?.atZone(ZoneId.systemDefault())?.format(dayFmt) ?: "", color = Dim, fontSize = 13.sp)
+                    Text(m.timeText(), style = androidx.compose.material3.MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(m.time?.atZone(ZoneId.systemDefault())?.format(dayFmt) ?: "", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                 }
             }
             TeamBox(m.away, favs.containsKey(m.away.id), Modifier.weight(1f)) { vm.toggleFav(m.away.id, m.away.name) }
         }
-        m.venue?.let { Text(it, color = Dim, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+        m.venue?.let { Text(it, color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         TabRow(selectedTabIndex = tab, containerColor = Bg) {
             listOf("Olaylar", "İstatistik", "Kadro").forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
         }
@@ -92,23 +92,23 @@ fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
                         val home = e.teamId == m.home.id
                         val icon = when (e.kind) { "goal" -> "⚽"; "yellow" -> "🟨"; "red" -> "🟥"; "sub" -> "🔁"; else -> "📺" }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = if (home) Arrangement.Start else Arrangement.End) {
-                            if (home) { Text(e.minute, color = Dim, modifier = Modifier.width(44.dp), fontSize = 13.sp); Text("$icon  ${e.text}") }
-                            else { Text("${e.text}  $icon"); Text(e.minute, color = Dim, modifier = Modifier.width(44.dp), textAlign = TextAlign.End, fontSize = 13.sp) }
+                            if (home) { Text(e.minute, color = Dim, modifier = Modifier.width(44.dp), style = androidx.compose.material3.MaterialTheme.typography.bodyMedium); Text("$icon  ${e.text}") }
+                            else { Text("${e.text}  $icon"); Text(e.minute, color = Dim, modifier = Modifier.width(44.dp), textAlign = TextAlign.End, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium) }
                         }
                     }
                     1 -> if (det.stats.isEmpty()) Text("İstatistik henüz yok.", color = Dim) else det.stats.forEach { s ->
                         Row(Modifier.fillMaxWidth()) {
                             Text(s.home, Modifier.width(60.dp), fontWeight = FontWeight.Bold)
-                            Text(s.label, Modifier.weight(1f), color = Dim, textAlign = TextAlign.Center, fontSize = 13.sp)
+                            Text(s.label, Modifier.weight(1f), color = Dim, textAlign = TextAlign.Center, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                             Text(s.away, Modifier.width(60.dp), fontWeight = FontWeight.Bold, textAlign = TextAlign.End)
                         }
                     }
                     else -> if (det.lineups.isEmpty()) Text("Kadro henüz açıklanmadı.", color = Dim) else det.lineups.forEach { l ->
                         Text(l.team.name + (l.formation?.let { " ($it)" } ?: ""), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
-                        l.starters.forEach { p -> Text("${p.jersey.padStart(2)}  ${p.name}  ${p.pos}", fontSize = 14.sp) }
+                        l.starters.forEach { p -> Text("${p.jersey.padStart(2)}  ${p.name}  ${p.pos}", style = androidx.compose.material3.MaterialTheme.typography.bodyMedium) }
                         if (l.bench.isNotEmpty()) {
-                            Text("Yedekler", color = Dim, fontSize = 12.sp)
-                            l.bench.forEach { p -> Text("${p.jersey.padStart(2)}  ${p.name}", color = Dim, fontSize = 13.sp) }
+                            Text("Yedekler", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+                            l.bench.forEach { p -> Text("${p.jersey.padStart(2)}  ${p.name}", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium) }
                         }
                     }
                 }
@@ -122,7 +122,7 @@ private fun TeamBox(t: Team, fav: Boolean, modifier: Modifier, onFav: () -> Unit
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Logo(t.logo, 56.dp)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(t.name, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, fontSize = 14.sp, modifier = Modifier.weight(1f, fill = false))
+            Text(t.name, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f, fill = false))
             IconButton(onClick = onFav) { Icon(if (fav) Icons.Filled.Star else Icons.Filled.StarBorder, "Favori", tint = if (fav) Color(0xFFFFC107) else Dim) }
         }
     }

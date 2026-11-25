@@ -51,7 +51,7 @@ fun MatchesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
     val days = remember { (-3..7).map { today.plusDays(it.toLong()) } }
 
     Column(modifier.fillMaxSize().background(Bg)) {
-        Text("Skor", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
+        Text("Skor", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
         LazyRow(state = rememberLazyListState(2), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(days) { d ->
                 val sel = d == day
@@ -60,7 +60,7 @@ fun MatchesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
                         .clickable { vm.setDay(d) }.padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(if (d == today) "Bugün" else d.format(dayFmt).substringBefore(' '), fontSize = 12.sp, color = if (sel) Color.White else Dim)
+                    Text(if (d == today) "Bugün" else d.format(dayFmt).substringBefore(' '), style = androidx.compose.material3.MaterialTheme.typography.labelMedium, color = if (sel) Color.White else Dim)
                     Text(d.dayOfMonth.toString(), fontWeight = FontWeight.Bold)
                 }
             }
@@ -79,7 +79,7 @@ fun MatchesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
                     val groups = shown.groupBy { it.league }.toSortedMap(compareBy { l -> LEAGUES.indexOf(l) })
                     groups.forEach { (league, list) ->
                         item(key = "h" + league.slug) {
-                            Text(league.name + " · " + league.country, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Dim, modifier = Modifier.padding(16.dp, 14.dp, 16.dp, 4.dp))
+                            Text(league.name + " · " + league.country, fontWeight = FontWeight.Bold, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, color = Dim, modifier = Modifier.padding(16.dp, 14.dp, 16.dp, 4.dp))
                         }
                         items(list, key = { it.league.slug + it.id }) { m -> MatchRow(m) { onOpen(m) } }
                     }
@@ -97,7 +97,7 @@ fun MatchRow(m: Match, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.width(52.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(m.statusShort(), color = if (m.live) LiveRed else Dim, fontWeight = if (m.live) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp)
+            Text(m.statusShort(), color = if (m.live) LiveRed else Dim, fontWeight = if (m.live) FontWeight.Bold else FontWeight.Normal, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TeamLine(m.home.logo, m.home.name, (m.homeScore?.let { (m.awayScore ?: 0) < it } ?: false) || !m.finished)
@@ -116,6 +116,6 @@ fun MatchRow(m: Match, onClick: () -> Unit) {
 private fun TeamLine(logo: String?, name: String, strong: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Logo(logo)
-        Text(name, modifier = Modifier.padding(start = 10.dp), maxLines = 1, color = if (strong) Color.White else Dim, fontSize = 14.sp)
+        Text(name, modifier = Modifier.padding(start = 10.dp), maxLines = 1, color = if (strong) Color.White else Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
     }
 }

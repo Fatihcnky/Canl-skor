@@ -42,7 +42,7 @@ fun TableScreen(vm: ScoreVm, modifier: Modifier) {
     val loading by vm.standLoading.collectAsStateWithLifecycle()
 
     Column(modifier.fillMaxSize().background(Bg)) {
-        Text("Puan Durumu", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
+        Text("Puan Durumu", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(LEAGUES) { l -> FilterChip(selected = league == l, onClick = { vm.loadStandings(l) }, label = { Text(l.name) }) }
         }
@@ -56,20 +56,20 @@ fun TableScreen(vm: ScoreVm, modifier: Modifier) {
                         item {
                             if (group.name.isNotBlank() && g.size > 1) Text(group.name, color = Dim, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
-                                Text("#", Modifier.width(34.dp), color = Dim, fontSize = 12.sp)
-                                Text("Takım", Modifier.weight(1f), color = Dim, fontSize = 12.sp)
-                                listOf("O", "G", "B", "M", "AV", "P").forEach { Text(it, Modifier.width(if (it == "AV" || it == "P") 34.dp else 26.dp), color = Dim, fontSize = 12.sp, textAlign = TextAlign.Center) }
+                                Text("#", Modifier.width(34.dp), color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+                                Text("Takım", Modifier.weight(1f), color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+                                listOf("O", "G", "B", "M", "AV", "P").forEach { Text(it, Modifier.width(if (it == "AV" || it == "P") 34.dp else 26.dp), color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center) }
                             }
                         }
                         items(group.rows) { r ->
                             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).background(Card).height(40.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.width(4.dp).fillMaxHeight().background(parseColor(r.color) ?: Color.Transparent))
-                                Text(r.rank.toString(), Modifier.width(30.dp), textAlign = TextAlign.Center, fontSize = 13.sp)
+                                Text(r.rank.toString(), Modifier.width(30.dp), textAlign = TextAlign.Center, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                                 Logo(r.team.logo, 20.dp)
-                                Text(r.team.name, Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, fontSize = 13.sp)
-                                listOf(r.played, r.won, r.drawn, r.lost).forEach { Text("$it", Modifier.width(26.dp), textAlign = TextAlign.Center, fontSize = 13.sp, color = Dim) }
-                                Text(if (r.gd > 0) "+${r.gd}" else "${r.gd}", Modifier.width(34.dp), textAlign = TextAlign.Center, fontSize = 13.sp, color = Dim)
-                                Text("${r.points}", Modifier.width(34.dp), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(r.team.name, Modifier.weight(1f).padding(start = 8.dp), maxLines = 1, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
+                                listOf(r.played, r.won, r.drawn, r.lost).forEach { Text("$it", Modifier.width(26.dp), textAlign = TextAlign.Center, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, color = Dim) }
+                                Text(if (r.gd > 0) "+${r.gd}" else "${r.gd}", Modifier.width(34.dp), textAlign = TextAlign.Center, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, color = Dim)
+                                Text("${r.points}", Modifier.width(34.dp), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
