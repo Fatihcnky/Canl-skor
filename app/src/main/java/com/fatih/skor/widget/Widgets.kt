@@ -18,6 +18,21 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import android.graphics.Bitmap
+import androidx.core.graphics.drawable.toBitmap
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.layout.Spacer
+import androidx.glance.layout.size
+import androidx.glance.layout.width
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxSize
@@ -36,36 +51,101 @@ private val white = ColorProvider(Color.White)
 private val dim = ColorProvider(Color(0xBDFFFFFF))
 private val red = ColorProvider(Color(0xFFF4568B))
 
+private val brand = ColorProvider(Color(0xFF3D1FB8))
+private val panel = ColorProvider(Color(0xFF1C1B22))
+
 @Composable
-private fun Body(p: WidgetPayload) {
-    Column(
-        GlanceModifier.fillMaxSize().background(bg).padding(10.dp).clickable(actionStartActivity<MainActivity>()),
-    ) {
-        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(p.title, style = TextStyle(color = ColorProvider(Color(0xFFDED6FE)), fontWeight = FontWeight.Bold, fontSize = 15.sp), modifier = GlanceModifier.defaultWeight())
-            Text("↻ ${p.updated}", style = TextStyle(color = dim, fontSize = 11.sp), modifier = GlanceModifier.clickable(actionRunCallback<RefreshAction>()))
+private fun Body(p: WidgetPayload, logos: Map<String, Bitmap>) {
+    Column(GlanceModifier.fillMaxSize().background(bg)) {
+        Row(
+            GlanceModifier.fillMaxWidth().background(brand).padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(p.title, maxLines = 1, style = TextStyle(color = white, fontWeight = FontWeight.Bold, fontSize = 15.sp), modifier = GlanceModifier.defaultWeight())
+            Text("↻ ${p.updated}", style = TextStyle(color = white, fontSize = 12.sp), modifier = GlanceModifier.clickable(actionRunCallback<RefreshAction>()))
         }
-        p.rows.forEach { r ->
-            Row(GlanceModifier.fillMaxWidth().padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(r.left, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp), modifier = GlanceModifier.defaultWeight())
-                Text(r.mid, style = TextStyle(color = if (r.live) red else white, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End))
-                if (r.right.isNotEmpty()) Text("  " + r.right, style = TextStyle(color = if (r.live) red else dim, fontSize = 12.sp))
+        LazyColumn(GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>())) {
+            items(p.items.size) { i ->
+                val it = p.items[i]
+                when (it.type) {
+                    "day" -> Text(it.a, style = TextStyle(color = ColorProvider(Color(0xFFDED6FE)), fontWeight = FontWeight.Bold, fontSize = 12.sp), modifier = GlanceModifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, bottom = 2.dp))
+                    "match" -> MatchRow(it, logos)
+                    "stand" -> StandRow(it, logos)
+                    else -> Text(it.a, style = TextStyle(color = dim, fontSize = 13.sp), modifier = GlanceModifier.padding(12.dp))
+                }
             }
         }
     }
 }
 
+@Composable
+private fun Logo(url: String?, logos: Map<String, Bitmap>) {
+    val b = url?.let { logos[it] }
+    if (b != null) Image(ImageProvider(b), null, modifier = GlanceModifier.size(18.dp))
+    else Spacer(GlanceModifier.size(18.dp))
+}
+
+@Composable
+private fun MatchRow(it: WItem, logos: Map<String, Bitmap>) {
+    val c = if (it.live) red else white
+    Row(GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(it.a, maxLines = 1, style = TextStyle(color = if (it.live) red else dim, fontSize = 11.sp, fontWeight = if (it.live) FontWeight.Bold else FontWeight.Normal), modifier = GlanceModifier.width(44.dp))
+        Column(GlanceModifier.defaultWeight()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Logo(it.logo1, logos)
+                Text("  " + it.b, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp))
+            }
+            Row(GlanceModifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Logo(it.logo2, logos)
+                Text("  " + it.c, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp))
+            }
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(it.d, style = TextStyle(color = c, fontWeight = FontWeight.Bold, fontSize = 13.sp))
+            Text(it.e, style = TextStyle(color = c, fontWeight = FontWeight.Bold, fontSize = 13.sp), modifier = GlanceModifier.padding(top = 3.dp))
+        }
+    }
+}
+
+@Composable
+private fun StandRow(it: WItem, logos: Map<String, Bitmap>) {
+    Row(GlanceModifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(it.a, style = TextStyle(color = dim, fontSize = 12.sp), modifier = GlanceModifier.width(22.dp))
+        Logo(it.logo1, logos)
+        Text("  " + it.b, maxLines = 1, style = TextStyle(color = white, fontSize = 13.sp), modifier = GlanceModifier.defaultWeight())
+        Text(it.c, style = TextStyle(color = dim, fontSize = 12.sp), modifier = GlanceModifier.width(26.dp))
+        Text(it.d, style = TextStyle(color = dim, fontSize = 12.sp), modifier = GlanceModifier.width(32.dp))
+        Text(it.e, style = TextStyle(color = white, fontWeight = FontWeight.Bold, fontSize = 13.sp), modifier = GlanceModifier.width(28.dp))
+    }
+}
+
+private suspend fun loadLogos(ctx: Context, p: WidgetPayload): Map<String, Bitmap> = coroutineScope {
+    val urls = p.items.flatMap { listOfNotNull(it.logo1, it.logo2) }.distinct().take(40)
+    val loader = ctx.imageLoader
+    urls.map { u ->
+        async {
+            val bmp = withTimeoutOrNull(6000) {
+                val r = loader.execute(ImageRequest.Builder(ctx).data(u).size(48).allowHardware(false).build())
+                (r as? SuccessResult)?.drawable?.toBitmap()
+            }
+            if (bmp != null) u to bmp else null
+        }
+    }.awaitAll().filterNotNull().toMap()
+}
+
 class MatchesWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val data = WidgetData.matches(context)
-        provideContent { Body(data) }
+        val logos = loadLogos(context, data)
+        provideContent { Body(data, logos) }
     }
 }
 
 class StandingsWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val data = WidgetData.standings(context)
-        provideContent { Body(data) }
+        val logos = loadLogos(context, data)
+        provideContent { Body(data, logos) }
     }
 }
 

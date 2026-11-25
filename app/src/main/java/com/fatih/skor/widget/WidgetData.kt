@@ -4,7 +4,7 @@ import android.content.Context
 import com.fatih.skor.data.Espn
 import com.fatih.skor.data.Match
 import com.fatih.skor.data.Store
-import com.fatih.skor.data.WRow
+import com.fatih.skor.data.WItem
 import com.fatih.skor.data.WidgetPayload
 import com.fatih.skor.data.leagueOf
 import java.time.LocalDate
@@ -19,20 +19,34 @@ object WidgetData {
 
     private fun now() = LocalTime.now().format(hm)
 
-    private fun row(m: Match): WRow {
+    private val dayLabel = DateTimeFormatter.ofPattern("EEEE • dd/MM", Locale("tr"))
+
+    private fun item(m: Match): WItem {
         val z = m.time?.atZone(ZoneId.systemDefault())
-        val today = z?.toLocalDate() == LocalDate.now()
-        val mid = when {
-            m.homeScore != null -> "${m.homeScore}-${m.awayScore ?: 0}"
-            z != null -> z.format(if (today) hm else dayHm)
-            else -> "-"
-        }
-        val right = when {
+        val st = when {
             m.live -> m.clock.ifBlank { "Canlı" }
             m.finished -> "MS"
-            else -> ""
+            else -> z?.format(hm) ?: "-"
         }
-        return WRow("${m.home.short} - ${m.away.short}", mid, right, m.live)
+        return WItem(
+            "match", a = st, b = m.home.short, c = m.away.short,
+            d = m.homeScore?.toString() ?: "", e = m.awayScore?.toString() ?: "",
+            live = m.live, logo1 = m.home.logo, logo2 = m.away.logo,
+        )
+    }
+
+    private fun grouped(list: List<Match>): List<WItem> {
+        val today = LocalDate.now()
+        val out = mutableListOf<WItem>()
+        list.sortedBy { it.time }.groupBy { it.localDate() }.forEach { (d, ms) ->
+            val label = when (d) {
+                today -> "Bugün"; today.plusDays(1) -> "Yarın"; today.minusDays(1) -> "Dün"
+                else -> d.format(dayLabel).replaceFirstChar { it.uppercase() }
+            }
+            out += WItem("day", a = label)
+            ms.forEach { out += item(it) }
+        }
+        return out
     }
 
     suspend fun matches(ctx: Context): WidgetPayload {
@@ -43,20 +57,17 @@ object WidgetData {
         var title = league.name
         var list: List<Match>? = null
         if (favs.isNotEmpty()) {
-            val all = Espn.range(today.minusDays(1), today.plusDays(5))
+            val all = Espn.range(today.minusDays(1), today.plusDays(6))
             val mine = all?.filter { it.home.id in favs || it.away.id in favs }.orEmpty()
             if (mine.isNotEmpty()) { list = mine; title = "Favori maçlar" }
             else if (all != null) list = all.filter { it.league == league }
         }
-        if (list == null) list = Espn.league(league, today.minusDays(1), today.plusDays(4))
+        if (list == null) list = Espn.league(league, today.minusDays(1), today.plusDays(6))
         if (list == null) {
-            return store.loadCache("matches") ?: WidgetPayload(title, now(), listOf(WRow("Veri alınamadı", "", "")))
+            return store.loadCache("matches") ?: WidgetPayload(title, now(), listOf(WItem("msg", a = "Veri alınamadı")))
         }
-        val live = list.filter { it.live }
-        val next = list.filter { it.state == "pre" }.sortedBy { it.time }
-        val done = list.filter { it.finished }.sortedByDescending { it.time }
-        val rows = (live + next.take(5) + done.take(3)).take(7).map(::row)
-        val payload = WidgetPayload(title, now(), rows.ifEmpty { listOf(WRow("Yakında maç yok", "", "")) })
+        val items = grouped(list.take(40))
+        val payload = WidgetPayload(title, now(), items.ifEmpty { listOf(WItem("msg", a = "Yakında maç yok")) })
         store.saveCache("matches", payload)
         return payload
     }
@@ -66,10 +77,10 @@ object WidgetData {
         val league = leagueOf(store.widgetLeague)
         val g = Espn.standings(league)?.firstOrNull()
         if (g == null) {
-            return store.loadCache("standings") ?: WidgetPayload(league.name, now(), listOf(WRow("Veri alınamadı", "", "")))
+            return store.loadCache("standings") ?: WidgetPayload(league.name, now(), listOf(WItem("msg", a = "Veri alınamadı")))
         }
         val rows = g.rows.take(9).map { r ->
-            WRow("${r.rank}. ${r.team.short}", "O${r.played}  AV${if (r.gd > 0) "+" else ""}${r.gd}", "${r.points} P")
+            WItem("stand", a = "${r.rank}", b = r.team.short, c = "${r.played}", d = "${if (r.gd > 0) "+" else ""}${r.gd}", e = "${r.points}", logo1 = r.team.logo)
         }
         val payload = WidgetPayload(league.name + " · Puan", now(), rows)
         store.saveCache("standings", payload)
