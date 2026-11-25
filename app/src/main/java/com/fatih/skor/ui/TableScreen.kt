@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,9 +44,9 @@ fun TableScreen(vm: ScoreVm, modifier: Modifier) {
     val loading by vm.standLoading.collectAsStateWithLifecycle()
 
     Column(modifier.fillMaxSize().background(Bg)) {
-        Text("Puan Durumu", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
+        Text("Puan Durumu", color = Brand, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(LEAGUES) { l -> FilterChip(selected = league == l, onClick = { vm.loadStandings(l) }, label = { Text(l.name) }) }
+            items(LEAGUES) { l -> SkorChip(selected = league == l, label = l.name, onClick = { vm.loadStandings(l) }) }
         }
         Box(Modifier.fillMaxSize()) {
             val g = groups
@@ -62,7 +64,7 @@ fun TableScreen(vm: ScoreVm, modifier: Modifier) {
                             }
                         }
                         items(group.rows) { r ->
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).background(Card).height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp).clip(RoundedCornerShape(12.dp)).background(Card).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.width(4.dp).fillMaxHeight().background(parseColor(r.color) ?: Color.Transparent))
                                 Text(r.rank.toString(), Modifier.width(30.dp), textAlign = TextAlign.Center, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
                                 Logo(r.team.logo, 20.dp)

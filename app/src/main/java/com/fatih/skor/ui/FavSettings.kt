@@ -37,7 +37,7 @@ fun FavoritesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
     val mine = all.filter { it.home.id in favs || it.away.id in favs }
 
     Column(modifier.fillMaxSize().background(Bg)) {
-        Text("Favoriler", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
+        Text("Favoriler", color = Brand, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
         if (favs.isEmpty()) {
             Text("Henüz favori takım yok. Bir maça gir ve takım adının yanındaki ☆ simgesine dokun.", color = Dim, modifier = Modifier.padding(16.dp))
         } else {
@@ -75,19 +75,19 @@ fun SettingsScreen(vm: ScoreVm, modifier: Modifier) {
         if (need) { pending = mode; permLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS) } else vm.setAlert(mode)
     }
     Column(modifier.fillMaxSize().background(Bg).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Ayarlar", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Ayarlar", color = Brand, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Gol bildirimleri", fontWeight = FontWeight.SemiBold)
         Text("Açıkken uygulama arka planda skorları izler ve gol, maç başladı, maç bitti bildirimi gönderir. Telefonda sürekli \"Gol takibi açık\" bildirimi görünür; pil kullanımı biraz artar. Telefon yeniden başlarsa uygulamayı bir kez açman gerekir.", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = alert == 0, onClick = { chooseAlert(0) }, label = { Text("Kapalı") })
-            FilterChip(selected = alert == 1, onClick = { chooseAlert(1) }, label = { Text("Favori takımlar") })
-            FilterChip(selected = alert == 2, onClick = { chooseAlert(2) }, label = { Text("Widget ligi") })
+            SkorChip(selected = alert == 0, label = "Kapalı", onClick = { chooseAlert(0) })
+            SkorChip(selected = alert == 1, label = "Favori takımlar", onClick = { chooseAlert(1) })
+            SkorChip(selected = alert == 2, label = "Widget ligi", onClick = { chooseAlert(2) })
         }
         Text("Widget ligi", fontWeight = FontWeight.SemiBold)
         Text("Ana ekrana eklediğin widget'lar bu ligi gösterir. Favori takımın varsa maç widget'ında onların maçları öne çıkar.", color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
         LEAGUES.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { l -> FilterChip(selected = wl == l.slug, onClick = { vm.setWidgetLeague(l.slug) }, label = { Text(l.name) }) }
+                row.forEach { l -> SkorChip(selected = wl == l.slug, label = l.name, onClick = { vm.setWidgetLeague(l.slug) }) }
             }
         }
         Text("Widget nasıl eklenir?", fontWeight = FontWeight.SemiBold)

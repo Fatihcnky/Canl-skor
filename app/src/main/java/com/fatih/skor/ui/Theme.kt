@@ -1,6 +1,21 @@
 package com.fatih.skor.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -9,21 +24,44 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val Bg = Color(0xFF0F1419)
-val Card = Color(0xFF1A212B)
-val Accent = Color(0xFF2E7DFF)
-val LiveRed = Color(0xFFFF4D4D)
-val Dim = Color(0xFF8A96A6)
+// Renkler ve şekiller android/compose-samples > Jetsnack temasından uyarlandı
+val Bg = Color(0xFF121212)               // Neutral8
+val Card = Color(0xFF1C1C1E)
+val Brand = Color(0xFFDED6FE)            // Shadow1
+val BrandSecondary = Color(0xFFBBFDFD)   // Ocean2
+val Accent = BrandSecondary
+val LiveRed = Color(0xFFF4568B)          // Rose4
+val Dim = Color(0xBDFFFFFF)              // Neutral1
+val BorderGradient = listOf(Color(0xFF86F7FA), Color(0xFF9B86FA)) // Ocean3 -> Shadow3
+val LiveGradient = listOf(Color(0xFFC30060), Color(0xFF5500D7), Color(0xFF7F0054)) // Rose8, Lavender7, Rose11
+val PillGradient = listOf(Color(0xFF57EFF5), Color(0xFFC8BBFD))   // Ocean4 -> Shadow2
+val HairLine = listOf(Color(0x1FFFFFFF), Color(0x1FFFFFFF))        // Neutral3
+
+fun Modifier.gradientBorder(colors: List<Color>, shape: Shape, width: Dp = 1.dp): Modifier =
+    border(width, Brush.linearGradient(colors), shape)
+
+/** Jetsnack'teki gibi: seçiliyken dolu, değilken gradyan çerçeveli hap biçimli filtre. */
+@Composable
+fun SkorChip(selected: Boolean, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(CircleShape)
+            .then(if (selected) Modifier.background(BrandSecondary) else Modifier.gradientBorder(BorderGradient, CircleShape))
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) Color.Black else Color.White, maxLines = 1)
+    }
+}
 
 @Composable
 fun SkorTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Accent, background = Bg, surface = Card,
+            primary = Brand, background = Bg, surface = Card,
             onBackground = Color.White, onSurface = Color.White,
             surfaceVariant = Card, onSurfaceVariant = Dim,
         ),
         typography = SkorTypography,
+        shapes = Shapes(small = CircleShape, medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(0.dp)),
         content = content,
     )
 }

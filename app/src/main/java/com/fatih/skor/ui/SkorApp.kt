@@ -1,7 +1,19 @@
 package com.fatih.skor.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Settings
@@ -35,19 +47,27 @@ fun SkorApp(vm: ScoreVm) {
         Scaffold(
             containerColor = Bg,
             bottomBar = {
-                NavigationBar(containerColor = Card) {
-                    val items = listOf(
-                        "Maçlar" to Icons.Filled.SportsSoccer,
-                        "Puan" to Icons.Filled.EmojiEvents,
-                        "Favoriler" to Icons.Filled.Star,
-                        "Ayarlar" to Icons.Filled.Settings,
-                    )
+                val items = listOf(
+                    "Maçlar" to Icons.Filled.SportsSoccer,
+                    "Puan" to Icons.Filled.EmojiEvents,
+                    "Favoriler" to Icons.Filled.Star,
+                    "Ayarlar" to Icons.Filled.Settings,
+                )
+                Row(
+                    Modifier.fillMaxWidth().background(Bg).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically,
+                ) {
                     items.forEachIndexed { i, (label, icon) ->
-                        NavigationBarItem(
-                            selected = tab == i, onClick = { tab = i },
-                            icon = { Icon(icon, label) }, label = { Text(label) },
-                            colors = NavigationBarItemDefaults.colors(indicatorColor = Bg),
-                        )
+                        val sel = tab == i
+                        Row(
+                            Modifier.clip(CircleShape)
+                                .then(if (sel) Modifier.background(Brush.horizontalGradient(PillGradient)) else Modifier)
+                                .clickable { tab = i }.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(icon, label, tint = if (sel) Color.Black else Dim)
+                            if (sel) Text(label, color = Color.Black, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 8.dp), maxLines = 1)
+                        }
                     }
                 }
             },

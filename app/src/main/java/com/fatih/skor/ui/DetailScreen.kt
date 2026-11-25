@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,7 +61,7 @@ fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Bg)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF23009E), Bg), endY = 1000f))) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Geri") }
             Text(m.league.name, color = Dim, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
@@ -79,7 +80,7 @@ fun DetailScreen(vm: ScoreVm, base: Match, onBack: () -> Unit) {
             TeamBox(m.away, favs.containsKey(m.away.id), Modifier.weight(1f)) { vm.toggleFav(m.away.id, m.away.name) }
         }
         m.venue?.let { Text(it, color = Dim, style = androidx.compose.material3.MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
-        TabRow(selectedTabIndex = tab, containerColor = Bg) {
+        TabRow(selectedTabIndex = tab, containerColor = Color.Transparent, contentColor = Brand) {
             listOf("Olaylar", "İstatistik", "Kadro").forEachIndexed { i, t -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(t) }) }
         }
         Box(Modifier.fillMaxSize()) {

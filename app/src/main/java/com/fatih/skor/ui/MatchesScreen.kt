@@ -51,24 +51,24 @@ fun MatchesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
     val days = remember { (-3..7).map { today.plusDays(it.toLong()) } }
 
     Column(modifier.fillMaxSize().background(Bg)) {
-        Text("Skor", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
+        Text("Skor", color = Brand, style = androidx.compose.material3.MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
         LazyRow(state = rememberLazyListState(2), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             items(days) { d ->
                 val sel = d == day
                 Column(
-                    Modifier.clip(RoundedCornerShape(10.dp)).background(if (sel) Accent else Card)
+                    Modifier.clip(RoundedCornerShape(20.dp)).then(if (sel) Modifier.background(BrandSecondary) else Modifier.gradientBorder(BorderGradient, RoundedCornerShape(20.dp)))
                         .clickable { vm.setDay(d) }.padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(if (d == today) "Bugün" else d.format(dayFmt).substringBefore(' '), style = androidx.compose.material3.MaterialTheme.typography.labelMedium, color = if (sel) Color.White else Dim)
-                    Text(d.dayOfMonth.toString(), fontWeight = FontWeight.Bold)
+                    Text(if (d == today) "Bugün" else d.format(dayFmt).substringBefore(' '), style = androidx.compose.material3.MaterialTheme.typography.labelMedium, color = if (sel) Color.Black else Dim)
+                    Text(d.dayOfMonth.toString(), fontWeight = FontWeight.Bold, color = if (sel) Color.Black else Color.White)
                 }
             }
         }
         LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            item { FilterChip(selected = liveOnly, onClick = { liveOnly = !liveOnly }, label = { Text("● Canlı") }) }
-            item { FilterChip(selected = filter == null, onClick = { filter = null }, label = { Text("Tümü") }) }
-            items(LEAGUES) { l -> FilterChip(selected = filter == l.slug, onClick = { filter = if (filter == l.slug) null else l.slug }, label = { Text(l.name) }) }
+            item { SkorChip(selected = liveOnly, label = "● Canlı", onClick = { liveOnly = !liveOnly }) }
+            item { SkorChip(selected = filter == null, label = "Tümü", onClick = { filter = null }) }
+            items(LEAGUES) { l -> SkorChip(selected = filter == l.slug, label = l.name, onClick = { filter = if (filter == l.slug) null else l.slug }) }
         }
         Box(Modifier.fillMaxSize()) {
             when {
@@ -92,8 +92,9 @@ fun MatchesScreen(vm: ScoreVm, modifier: Modifier, onOpen: (Match) -> Unit) {
 @Composable
 fun MatchRow(m: Match, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp).clip(RoundedCornerShape(12.dp)).background(Card)
-            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(20.dp)).background(Card)
+            .gradientBorder(if (m.live) LiveGradient else HairLine, RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.width(52.dp), horizontalAlignment = Alignment.CenterHorizontally) {

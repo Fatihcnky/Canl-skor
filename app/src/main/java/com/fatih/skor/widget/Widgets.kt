@@ -31,10 +31,10 @@ import androidx.glance.unit.ColorProvider
 import com.fatih.skor.MainActivity
 import com.fatih.skor.data.WidgetPayload
 
-private val bg = ColorProvider(Color(0xFF111820))
+private val bg = ColorProvider(Color(0xFF121212))
 private val white = ColorProvider(Color.White)
-private val dim = ColorProvider(Color(0xFF8A96A6))
-private val red = ColorProvider(Color(0xFFFF4D4D))
+private val dim = ColorProvider(Color(0xBDFFFFFF))
+private val red = ColorProvider(Color(0xFFF4568B))
 
 @Composable
 private fun Body(p: WidgetPayload) {
@@ -42,7 +42,7 @@ private fun Body(p: WidgetPayload) {
         GlanceModifier.fillMaxSize().background(bg).padding(10.dp).clickable(actionStartActivity<MainActivity>()),
     ) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(p.title, style = TextStyle(color = white, fontWeight = FontWeight.Bold, fontSize = 14.sp), modifier = GlanceModifier.defaultWeight())
+            Text(p.title, style = TextStyle(color = ColorProvider(Color(0xFFDED6FE)), fontWeight = FontWeight.Bold, fontSize = 15.sp), modifier = GlanceModifier.defaultWeight())
             Text("↻ ${p.updated}", style = TextStyle(color = dim, fontSize = 11.sp), modifier = GlanceModifier.clickable(actionRunCallback<RefreshAction>()))
         }
         p.rows.forEach { r ->
