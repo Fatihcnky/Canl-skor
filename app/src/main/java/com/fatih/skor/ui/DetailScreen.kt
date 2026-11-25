@@ -134,24 +134,23 @@ private fun Panel(modifier: Modifier = Modifier, content: @Composable () -> Unit
 
 @Composable
 private fun InfoTab(m: Match, det: Detail) {
-    val i = det.info
+    val i = det.info ?: com.fatih.skor.data.Info(null, null, null, null, emptyList())
     Panel {
-        InfoRow("🏆", listOfNotNull(m.league.name, i.round).joinToString(" · "))
+        InfoRow("🏆", m.league.name)
         InfoRow("🗓", (m.time?.atZone(ZoneId.systemDefault())?.format(java.time.format.DateTimeFormatter.ofPattern("d.MM.yyyy · HH:mm")) ?: "-"))
         i.venue?.let { InfoRow("🏟", listOfNotNull(it, i.city).joinToString(", ")) }
         i.referee?.let { InfoRow("🟨", "Hakem: $it") }
         i.attendance?.let { InfoRow("👥", "Seyirci: $it") }
         if (i.broadcasts.isNotEmpty()) InfoRow("📺", i.broadcasts.joinToString(", "))
     }
-    val forms = det.forms
-    if (forms.any { it.games.isNotEmpty() }) {
+    if (det.formHome.isNotEmpty() || det.formAway.isNotEmpty()) {
         Panel {
             Text("Takım formu", style = MaterialTheme.typography.titleMedium, color = Brand, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf(m.home, m.away).forEach { t ->
+                listOf(m.home to det.formHome, m.away to det.formAway).forEach { (t, games) ->
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(t.short, style = MaterialTheme.typography.labelMedium, color = Dim, maxLines = 1)
-                        forms.firstOrNull { it.teamId == t.id }?.games?.forEach { g ->
+                        games.forEach { g ->
                             val c = when (g.result.uppercase()) { "W" -> Green; "L" -> Red; else -> Grey }
                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.copy(alpha = 0.25f)).padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(g.score, fontWeight = FontWeight.Bold, color = c, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
